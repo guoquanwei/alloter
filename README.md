@@ -15,14 +15,14 @@ Generally it can be set as a singleton to save memory. There are some example to
 ### Normal Alloter
 Alloter is a base struct to execute functions concurrently.
 ```
-    // option is not necessary
 	opt := &Options{TimeOut:DurationPtr(time.Millisecond*50)}
+	// option is not necessary
 	c := NewAlloter(opt)
 	
 	err := c.Exec(
 		func() error {
-			fmt.Println(1)
 			time.Sleep(time.Second * 2)
+			fmt.Println(1)
 			return nil
 		},
 		func() error {
@@ -37,7 +37,7 @@ Alloter is a base struct to execute functions concurrently.
 	)
 	
 	if err != nil {
-		// ...do sth
+		...do sth
 	}
 ```
 ### Pooled Alloter
@@ -56,10 +56,9 @@ Pooled alloter uses the goroutine pool to execute functions. In some times it is
 		},
 	}
 	
-	
+	opt := &Options{TimeOut:DurationPtr(time.Millisecond*50)}
 	// 'limit' needs >= 0,default is runtime.NumCPU()
 	// 'option' is not necessary
-	opt := &Options{TimeOut:DurationPtr(time.Millisecond*50)}
 	c := NewPooledAlloter(1, opt)
 	
 	err := c.Exec(tasks...) 
@@ -79,6 +78,6 @@ Use custom goroutine pool
 	done := Exec(...)
 
 	if !done {
-		// ... do sth 
+		... do sth 
 	}
 ```
