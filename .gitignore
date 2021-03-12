@@ -1,0 +1,8 @@
+config/local.*
+.vscode
+dist/
+__debug_bin
+docs/
+.idea
+.DS_Store
+tmp
