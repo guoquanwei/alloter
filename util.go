@@ -5,13 +5,7 @@ import (
 	"fmt"
 	"runtime/debug"
 	"sync"
-	"time"
 )
-
-// DurationPtr helps to make a duration ptr
-func DurationPtr(t time.Duration) *time.Duration {
-	return &t
-}
 
 // wrapperTask will wrapper the task in order to notice execution result
 // to the main process

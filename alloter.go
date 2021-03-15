@@ -15,8 +15,8 @@ type BaseAlloter interface {
 // TimedAlloter is the alloter interface within timeout method
 type TimedAlloter interface {
 	BaseAlloter
-	GetTimeout() *time.Duration
-	setTimeout(timeout *time.Duration)
+	GetTimeout() *time.Time
+	setTimeout(timeout *time.Time)
 }
 
 // ErrorTimeOut is the error when executes tasks timeout
@@ -27,7 +27,7 @@ type Task func() error
 
 // Alloter is the base struct
 type Alloter struct {
-	timeout *time.Duration
+	timeout *time.Time
 }
 
 // NewAlloter creates an Alloter instance
@@ -50,11 +50,11 @@ func (c *Alloter) ExecWithContext(ctx context.Context, tasks *[]Task) error {
 }
 
 // GetTimeout return the timeout set before
-func (c *Alloter) GetTimeout() *time.Duration {
+func (c *Alloter) GetTimeout() *time.Time {
 	return c.timeout
 }
 
 // setTimeout sets the timeout
-func (c *Alloter) setTimeout(timeout *time.Duration) {
+func (c *Alloter) setTimeout(timeout *time.Time) {
 	c.timeout = timeout
 }
