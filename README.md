@@ -1,7 +1,10 @@
 ## Introduction
 [![GoDoc](https://godoc.org/github.com/ITcathyh/alloter?status.svg)](https://godoc.org/github.com/guoquanwei/alloter)
 
-Alloter is a concurrent toolkit to help execute functions concurrently in an efficient and safe way.
+Alloter is a goroutine's concurrent toolkit to help execute functions concurrently in an efficient and safe way.
+
+It was inspired by a Node.js package's function, [bluebird](https://npmjs.com/package/bluebird) .map()
+
 * It supports concurrency limits.
 * It supports recovery goroutine's panic.
 * It supports specifying the overall timeout to avoid blocking.
