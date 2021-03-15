@@ -108,8 +108,8 @@ Alloter is a base struct to execute functions concurrently.
     
     func (that *Controller) TestGoRunLock(ctx echo.Context) (err error) {
         userIds := []string{
-            `5b71065bd9ef525f497e5ca3`,
-            `5c19f888d47bb01155418127`,
+            `uuid_1`,
+            `uuid_2`,
         }
         tasks := []alloter.Task{}
         result := UsersLock{}
