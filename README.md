@@ -76,6 +76,7 @@ Alloter is a base struct to execute functions concurrently.
 ### Demo!!!
 ```
     func getRequestDeadLine(ctx *echo.Context) time.Duration {
+        // timeout middleware.
         reqExpire, _ := (*ctx).Request().Context().Deadline()
         // default timeout is 8s.
         timeOut := int64(8000)
