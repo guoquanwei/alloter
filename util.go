@@ -36,13 +36,11 @@ func wrapperTask(ctx context.Context, task Task,
 }
 
 // setOptions set the options for alloter
-func setOptions(c TimedAlloter, options ...*Options) {
-	if options == nil || len(options) == 0 || options[0] == nil {
+func setOptions(c TimedAlloter, options *Options) {
+	if options == nil {
 		return
 	}
-
-	opt := options[0]
-	if opt.TimeOut != nil {
-		c.setTimeout(opt.TimeOut)
+	if options.TimeOut != nil {
+		c.setTimeout(options.TimeOut)
 	}
 }

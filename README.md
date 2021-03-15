@@ -34,22 +34,22 @@ Pooled alloter uses the goroutine pool to execute functions. In some times it is
 	
 	opt := &Options{TimeOut:DurationPtr(time.Millisecond*50)}
 	// 'limit' needs >= 0,default is runtime.NumCPU()
-	// 'option' is not necessary
+	// 'option' is not necessary, can be use 'nil'
 	c := NewPooledAlloter(1, opt)
 	
-	err := c.Exec(tasks...) 
+	err := c.Exec(&tasks) 
 	if err != nil {
 		...do sth
 	}
 	// can also be used c.ExecWithContext()
-	// err := c.ExecWithContext(context, tasks...) 
+	// err := c.ExecWithContext(context, &tasks) 
 ```
 
 ### Normal Alloter, like 'errgroup'.
 Alloter is a base struct to execute functions concurrently.
 ```
 	opt := &Options{TimeOut:DurationPtr(time.Millisecond*50)}
-	// option is not necessary
+	// 'option' is not necessary, can be use 'nil'
 	c := NewAlloter(opt)
 	
 	err := c.Exec(
@@ -94,7 +94,6 @@ Alloter is a base struct to execute functions concurrently.
     func wrapFunc(tasks *[]alloter.Task, lockStore *UsersLock, uid string) {
         *tasks = append (*tasks, func() error {
             // request/db operations.
-            fmt.Println(`查询user信息：`, uid)
             user, err := third_parts.GetUserById(uid)
             if err != nil {
                 return err
@@ -118,7 +117,7 @@ Alloter is a base struct to execute functions concurrently.
         }
         poolDeadline := getRequestDeadLine(&ctx)
         p := alloter.NewPooledAlloter(1, &alloter.Options{TimeOut: &poolDeadline})
-        err = p.ExecWithContext(ctx.Request().Context(), tasks...)
+        err = p.ExecWithContext(ctx.Request().Context(), &tasks)
         if err != nil {
             ctx.JSON(500, err.Error())
             return

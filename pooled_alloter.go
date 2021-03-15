@@ -32,11 +32,11 @@ type PooledAlloter struct {
 }
 
 // NewPooledAlloter creates an PooledAlloter instance
-func NewPooledAlloter(workerNum int, opt ...*Options) *PooledAlloter {
+func NewPooledAlloter(workerNum int, opt *Options) *PooledAlloter {
 	c := &PooledAlloter{
 		workerNum: workerNum,
 	}
-	setOptions(c, opt...)
+	setOptions(c, opt)
 	return c
 }
 
@@ -48,14 +48,14 @@ func (c *PooledAlloter) WithPool(pool GoroutinePool) *PooledAlloter {
 }
 
 // Exec is used to run tasks concurrently
-func (c *PooledAlloter) Exec(tasks ...Task) error {
-	return c.ExecWithContext(context.Background(), tasks...)
+func (c *PooledAlloter) Exec(tasks *[]Task) error {
+	return c.ExecWithContext(context.Background(), tasks)
 }
 
 // ExecWithContext uses goroutine pool to run tasks concurrently
 // Return nil when tasks are all completed successfully,
 // or return error when some exception happen such as timeout
-func (c *PooledAlloter) ExecWithContext(ctx context.Context, tasks ...Task) error {
+func (c *PooledAlloter) ExecWithContext(ctx context.Context, tasks *[]Task) error {
 	// Finaly, close pool.
 	defer c.Release()
 	// ensure the alloter can init correctly
@@ -67,7 +67,7 @@ func (c *PooledAlloter) ExecWithContext(ctx context.Context, tasks ...Task) erro
 		return ErrorUsingAlloter
 	}
 
-	return execTasks(ctx, c, c.runWithPool, tasks...)
+	return execTasks(ctx, c, c.runWithPool, tasks)
 }
 
 // GetTimeout return the timeout set before

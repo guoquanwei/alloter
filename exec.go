@@ -52,8 +52,8 @@ func waitWithTimeout(ctx context.Context, resChan chan error,
 // execTasks uses customized function to
 // execute every task, such as using the simplyRun
 func execTasks(parent context.Context, c TimedAlloter,
-	execFunc func(f func()), tasks ...Task) error {
-	size := len(tasks)
+	execFunc func(f func()), tasks *[]Task) error {
+	size := len(*tasks)
 	if size == 0 {
 		return nil
 	}
@@ -73,7 +73,7 @@ func execTasks(parent context.Context, c TimedAlloter,
 		}()
 	}
 
-	for _, task := range tasks {
+	for _, task := range *tasks {
 		// If find error, fast return.
 		if timeoutErr != nil {
 			return timeoutErr
@@ -127,12 +127,12 @@ func simplyRun(f func()) {
 // Exec simply runs the tasks concurrently
 // True will be returned is all tasks complete successfully
 // otherwise false will be returned
-func Exec(tasks ...Task) bool {
+func Exec(tasks *[]Task) bool {
 	var c int32
 	wg := &sync.WaitGroup{}
-	wg.Add(len(tasks))
+	wg.Add(len(*tasks))
 
-	for _, t := range tasks {
+	for _, t := range *tasks {
 		go func(task Task) {
 			defer func() {
 				if r := recover(); r != nil {
@@ -156,12 +156,12 @@ func Exec(tasks ...Task) bool {
 // ExecWithError simply runs the tasks concurrently
 // nil will be returned is all tasks complete successfully
 // otherwise custom error will be returned
-func ExecWithError(tasks ...Task) error {
+func ExecWithError(tasks *[]Task) error {
 	var err error
 	wg := &sync.WaitGroup{}
-	wg.Add(len(tasks))
+	wg.Add(len(*tasks))
 
-	for _, t := range tasks {
+	for _, t := range *tasks {
 		go func(task Task) {
 			defer func() {
 				if r := recover(); r != nil {
