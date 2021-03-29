@@ -23,7 +23,7 @@ type GoroutinePool interface {
 
 // PooledAlloter is a alloter which has a worker pool
 type PooledAlloter struct {
-	timeout *time.Time
+	timeout time.Time
 
 	workerNum int
 	pool      GoroutinePool
@@ -71,7 +71,7 @@ func (c *PooledAlloter) ExecWithContext(ctx context.Context, tasks *[]Task) erro
 }
 
 // GetTimeout return the timeout set before
-func (c *PooledAlloter) GetTimeout() *time.Time {
+func (c *PooledAlloter) GetTimeout() time.Time {
 	return c.timeout
 }
 
@@ -114,7 +114,7 @@ func (c *PooledAlloter) runWithPool(f func()) {
 }
 
 // setTimeout sets the timeout
-func (c *PooledAlloter) setTimeout(timeout *time.Time) {
+func (c *PooledAlloter) setTimeout(timeout time.Time) {
 	c.timeout = timeout
 }
 

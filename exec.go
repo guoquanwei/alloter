@@ -26,7 +26,7 @@ func execTasks(parent context.Context, c TimedAlloter,
 	timeout := c.GetTimeout()
 	for _, task := range *tasks {
 		// If find error, fast return.
-		if timeout != nil && time.Now().After(*timeout) {
+		if !timeout.IsZero() && time.Now().After(timeout) {
 			return ErrorTimeOut
 		}
 		select {
@@ -55,7 +55,7 @@ func execTasks(parent context.Context, c TimedAlloter,
 	}()
 
 	for {
-		if timeout != nil && time.Now().After(*timeout) {
+		if !timeout.IsZero() && time.Now().After(timeout) {
 			return ErrorTimeOut
 		}
 		select {

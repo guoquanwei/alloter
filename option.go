@@ -6,5 +6,5 @@ import (
 
 // Options use to init alloter
 type Options struct {
-	TimeOut *time.Time
+	TimeOut time.Time
 }

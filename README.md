@@ -35,10 +35,9 @@ Pooled alloter uses the goroutine pool to execute functions. In some times it is
    }
     // 'limit' needs >= 0,default is runtime.NumCPU()
     // 'option' is not necessary, can be use 'nil'
-    deadline := time.Now().Add(8 * time.Second)
-    c := NewPooledAlloter(1, &Options{TimeOut: &deadline})
+    c := NewPooledAlloter(1, &Options{TimeOut: time.Now().Add(8 * time.Second)})
 
-    err := c.Exec(&tasks)
+    err := c.ExecWithContext(context.Background(), &tasks)
     if err != nil {
         ...do sth
     }
@@ -50,78 +49,59 @@ Pooled alloter uses the goroutine pool to execute functions. In some times it is
 Alloter is a base struct to execute functions concurrently.
 ```go
     // 'option' is not necessary, can be use 'nil'
-    deadline := time.Now().Add(8 * time.Second)
-    c := NewAlloter(&Options{TimeOut: &deadline})
-    err := c.Exec(
-	func() error {
-		time.Sleep(time.Second * 2)
-		fmt.Println(1)
-		return nil
-	},
-	func() error {
-		fmt.Println(2)
-		return nil
-	},
-	func() error {
-		time.Sleep(time.Second * 1)
-		fmt.Println(3)
-		return nil
-	}, )
-	
-	if err != nil {
-		...do sth
-	}
+    c := NewAlloter(&Options{TimeOut: time.Now().Add(3 * time.Second)})
+    err := c.ExecWithContext(context.Background(), &[]alloter.Task{
+        func() error {
+            time.Sleep(time.Second * 2)
+            fmt.Println(1)
+            return nil
+        },
+        func() error {
+            fmt.Println(2)
+            return nil
+        },
+        func() error {
+            time.Sleep(time.Second * 1)
+            fmt.Println(3)
+            return nil
+        },
+    })
+    if err != nil {
+    	...do sth
+    }
 
 ```
 ### Demo!!!
 ```go
-    func getRequestDeadLine(ctx *echo.Context) time.Time {
-    // timeout middleware will fill Deadline().
-	deadline, _ := (*ctx).Request().Context().Deadline()
-	// default timeout is 8s.
-	if deadline.IsZero() {
-	    deadline = time.Now().Add(8 * time.Second)
-	}
-	return deadline
-    }
-    
-    type UsersLock struct {
-        sync.Mutex
-        users []third_parts.User
-    }
-    
-    func wrapFunc(tasks *[]alloter.Task, lockStore *UsersLock, uid string) {
-        *tasks = append (*tasks, func() error {
-            // request/db operations.
-            user, err := third_parts.GetUserById(uid)
-            if err != nil {
-                return err
-            }
-            lockStore.Lock()
-            lockStore.users = append(lockStore.users, user)
-            lockStore.Unlock()
-            return nil
-        })
-    }
-    
     func (that *Controller) TestGoRunLock(ctx echo.Context) {
         userIds := []string{
-            `uuid_1`,
-            `uuid_2`,
+            "uuid_1",
+            "uuid_2",
         }
         tasks := []alloter.Task{}
-        result := UsersLock{}
+        users := []third_parts.User{}
+        mux := sync.Mutex{}
         for _, uid := range userIds {
-            wrapFunc(&tasks, &result, uid)
+            func (uid string) {
+                tasks = append(tasks, func() error {
+                user, resErr := third_parts.GetUserById(uid)
+                if resErr != nil {
+                    return resErr
+                }
+                mux.Lock()
+                users = append(users, user)
+                mux.Unlock()
+                return nil
+                })
+            }(uid)
         }
-        poolDeadline := getRequestDeadLine(&ctx)
-        p := alloter.NewPooledAlloter(1, &alloter.Options{TimeOut: &poolDeadline})
+        p := alloter.NewPooledAlloter(1, &alloter.Options{TimeOut: time.Now().Add(3 * time.Second)})
         err = p.ExecWithContext(ctx.Request().Context(), &tasks)
         if err != nil {
             ctx.JSON(500, err.Error())
             return
         }
-        ctx.JSON(200, result.users)
+        ctx.JSON(200, users)
         return
     }
 

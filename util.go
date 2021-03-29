@@ -34,7 +34,7 @@ func setOptions(c TimedAlloter, options *Options) {
 	if options == nil {
 		return
 	}
-	if options.TimeOut != nil {
+	if !options.TimeOut.IsZero() {
 		c.setTimeout(options.TimeOut)
 	}
 }
