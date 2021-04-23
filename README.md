@@ -12,65 +12,35 @@ It was inspired by a Node.js package's function, [bluebird](https://npmjs.com/pa
 * It supports the use of goroutines pool(invoke [ants/v2](https://github.com/panjf2000/ants)).
 * It supports context passing; listen ctx.Done(), will return.
 * It supports ending other tasks when an error occurs.
-* It supports fast return when an error occurs.
 
-## How to use
-
-Generally it can be set as a singleton to save memory. There are some example to use it.
-
-### Pooled Alloter
-
-Pooled alloter uses the goroutine pool to execute functions. In some times it is a more efficient way.
-
+### init Alloter
 ```go
-   tasks := []alloter.Task{
-	func() error {
-    	    time.Sleep(1 * time.Second)
-    	    return nil
-	}, 
-	func() error {
-	    time.Sleep(1 * time.Second)
-	    return nil
-	},
-   }
-    // 'limit' needs >= 0,default is runtime.NumCPU()
-    // 'option' is not necessary, can be use 'nil'
-    c := NewPooledAlloter(1, &Options{TimeOut: time.Now().Add(8 * time.Second)})
+type Options struct {
+    TimeOut time.Time
+}
 
-    err := c.ExecWithContext(context.Background(), &tasks)
-    if err != nil {
-        ...do sth
-    }
-    // can also be used c.ExecWithContext()
-    // err := c.ExecWithContext(context, &tasks) 
+// simple concurrency
+func NewAlloter(opt *Options) *Alloter
+
+// concurrency control
+func NewCtrlAlloter(workerNum int, opt *Options) *Alloter
+
+// goroutines pool from ants/v2
+func NewPooledAlloter(workerNum int, opt *Options) *Alloter
+
 ```
 
-### Normal Alloter, like 'errgroup'.
-Alloter is a base struct to execute functions concurrently.
+### exec Alloter
 ```go
-    // 'option' is not necessary, can be use 'nil'
-    c := NewAlloter(&Options{TimeOut: time.Now().Add(3 * time.Second)})
-    err := c.ExecWithContext(context.Background(), &[]alloter.Task{
-        func() error {
-            time.Sleep(time.Second * 2)
-            fmt.Println(1)
-            return nil
-        },
-        func() error {
-            fmt.Println(2)
-            return nil
-        },
-        func() error {
-            time.Sleep(time.Second * 1)
-            fmt.Println(3)
-            return nil
-        },
-    })
-    if err != nil {
-    	...do sth
-    }
+type Task func() error
+
+func (c *Alloter) Exec(tasks *[]Task) error
+
+func (c *Alloter) ExecWithContext(ctx context.Context, tasks *[]Task) error
 
 ```
+
+
 ### Demo!!!
 ```go
     func (that *Controller) TestGoRunLock(ctx echo.Context) {
@@ -95,7 +65,7 @@ Alloter is a base struct to execute functions concurrently.
                 })
             }(uid)
         }
-        p := alloter.NewPooledAlloter(1, &alloter.Options{TimeOut: time.Now().Add(3 * time.Second)})
+        p := alloter.NewCtrlAlloter(1, &alloter.Options{TimeOut: time.Now().Add(3 * time.Second)})
         err = p.ExecWithContext(ctx.Request().Context(), &tasks)
         if err != nil {
             ctx.JSON(500, err.Error())

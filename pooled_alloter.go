@@ -9,34 +9,27 @@ import (
 	"time"
 )
 
-var (
-	// ErrorUsingAlloter is the error when goroutine pool has exception
-	ErrorUsingAlloter = fmt.Errorf("ErrorUsingAlloter")
-)
+var ErrorUsingAlloter = fmt.Errorf("ErrorUsingActuator")
 
-// GoroutinePool is the base routine pool interface
-// User can use custom goroutine pool by implementing this interface
 type GoroutinePool interface {
 	Submit(f func()) error
 	Release()
 }
 
-// PooledAlloter is a alloter which has a worker pool
 type PooledAlloter struct {
 	timeout time.Time
-
 	workerNum int
 	pool      GoroutinePool
-
 	initOnce sync.Once
 }
 
-// NewPooledAlloter creates an PooledAlloter instance
 func NewPooledAlloter(workerNum int, opt *Options) *PooledAlloter {
 	c := &PooledAlloter{
 		workerNum: workerNum,
 	}
-	setOptions(c, opt)
+	if opt != nil && !opt.TimeOut.IsZero() {
+		c.timeout = opt.TimeOut
+	}
 	return c
 }
 
@@ -52,13 +45,8 @@ func (c *PooledAlloter) Exec(tasks *[]Task) error {
 	return c.ExecWithContext(context.Background(), tasks)
 }
 
-// ExecWithContext uses goroutine pool to run tasks concurrently
-// Return nil when tasks are all completed successfully,
-// or return error when some exception happen such as timeout
 func (c *PooledAlloter) ExecWithContext(ctx context.Context, tasks *[]Task) error {
-	// Finaly, close pool.
 	defer c.Release()
-	// ensure the alloter can init correctly
 	c.initOnce.Do(func() {
 		c.initPooledAlloter()
 	})
@@ -67,27 +55,21 @@ func (c *PooledAlloter) ExecWithContext(ctx context.Context, tasks *[]Task) erro
 		return ErrorUsingAlloter
 	}
 
-	return execTasks(ctx, c, c.runWithPool, tasks)
+	return c.execTasks(ctx, tasks)
 }
 
-// GetTimeout return the timeout set before
 func (c *PooledAlloter) GetTimeout() time.Time {
 	return c.timeout
 }
 
-// Release will release the pool
 func (c *PooledAlloter) Release() {
 	if c.pool != nil {
 		c.pool.Release()
 	}
 }
 
-// initPooledAlloter init the pooled alloter once while the runtime
-// If the workerNum is zero or negative,
-// default worker num will be used
 func (c *PooledAlloter) initPooledAlloter() {
 	if c.pool != nil {
-		// just pass
 		c.workerNum = 1
 		return
 	}
@@ -101,19 +83,10 @@ func (c *PooledAlloter) initPooledAlloter() {
 
 	if err != nil {
 		c.workerNum = -1
-		fmt.Println("initPooledAlloter err")
+		panic(err)
 	}
 }
 
-// runWithPool used the goroutine pool to execute the tasks
-func (c *PooledAlloter) runWithPool(f func()) {
-	err := c.pool.Submit(f)
-	if err != nil {
-		fmt.Println("submit task err:", err.Error())
-	}
-}
-
-// setTimeout sets the timeout
 func (c *PooledAlloter) setTimeout(timeout time.Time) {
 	c.timeout = timeout
 }
@@ -124,5 +97,77 @@ func (c *PooledAlloter) clone() *PooledAlloter {
 		timeout:   c.timeout,
 		workerNum: c.workerNum,
 		initOnce:  sync.Once{},
+	}
+}
+
+func (c *PooledAlloter) execTasks(parent context.Context, tasks *[]Task) error {
+	size := len(*tasks)
+	if size == 0 {
+		return nil
+	}
+
+	ctx, cancel := context.WithCancel(parent)
+	resChan := make(chan error, size)
+	errChan := make(chan error, size)
+	wg := sync.WaitGroup{}
+	wg.Add(size)
+
+	timeout := c.GetTimeout()
+	for _, task := range *tasks {
+		select {
+		case <-time.After(timeout.Sub(time.Now())):
+			cancel()
+			return ErrorTimeOut
+		case <-ctx.Done():
+			cancel()
+			return nil
+		case err := <-errChan:
+			cancel()
+			return err
+		default:
+		}
+
+		f := wrapperTask(ctx, cancel, task, &wg, &resChan, &errChan, timeout)
+		err := c.pool.Submit(f)
+		if err != nil {
+			return err
+		}
+	}
+
+	// When error, wo can't close resChan, maybe some goroutines just finished.
+	// So, when error, wo just can wait auto GC.
+	go func() {
+		wg.Wait()
+		cancel()
+		close(resChan)
+		close(errChan)
+	}()
+
+	// time control
+	if timeout.IsZero() {
+		for {
+			select {
+			case <-ctx.Done():
+				cancel()
+				return nil
+			case err := <-errChan:
+				cancel()
+				return err
+			}
+		}
+	} else {
+		for {
+			select {
+			case <-time.After(timeout.Sub(time.Now())):
+				cancel()
+				return ErrorTimeOut
+			case <-ctx.Done():
+				cancel()
+				return nil
+			case err := <-errChan:
+				cancel()
+				return err
+			}
+		}
 	}
 }

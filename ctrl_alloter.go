@@ -6,48 +6,72 @@ import (
 	"time"
 )
 
-type Alloter struct {
+type CtrlAlloter struct {
 	timeout time.Time
+	workerNum int
+	ctrlChan chan struct{}
 }
 
-func NewAlloter(opt *Options) *Alloter {
-	c := &Alloter{}
+func NewCtrlAlloter(workerNum int, opt *Options) *CtrlAlloter {
+	c := &CtrlAlloter{
+		workerNum: workerNum,
+		ctrlChan: make(chan struct{}, workerNum),
+	}
 	if opt != nil && !opt.TimeOut.IsZero() {
 		c.timeout = opt.TimeOut
 	}
 	return c
 }
 
-func (c *Alloter) Exec(tasks *[]Task) error {
+func (c *CtrlAlloter) Exec(tasks *[]Task) error {
 	return c.execTasks(context.Background(), tasks)
 }
 
-func (c *Alloter) ExecWithContext(ctx context.Context, tasks *[]Task) error {
+func (c *CtrlAlloter) ExecWithContext(ctx context.Context, tasks *[]Task) error {
 	return c.execTasks(ctx, tasks)
 }
 
-func (c *Alloter) GetTimeout() time.Time {
+func (c *CtrlAlloter) GetTimeout() time.Time {
 	return c.timeout
 }
 
-func (c *Alloter) setTimeout(timeout time.Time) {
+func (c *CtrlAlloter) setTimeout(timeout time.Time) {
 	c.timeout = timeout
 }
 
-func (c *Alloter) execTasks(parent context.Context, tasks *[]Task) error {
+func (c *CtrlAlloter) execTasks(parent context.Context, tasks *[]Task) error {
 	size := len(*tasks)
 	if size == 0 {
 		return nil
 	}
+
 	ctx, cancel := context.WithCancel(parent)
+	resChan := make(chan error, size)
 	errChan := make(chan error, size)
 	wg := sync.WaitGroup{}
 	wg.Add(size)
 
 	timeout := c.GetTimeout()
 	for _, task := range *tasks {
-		f := wrapperSimpleTask(task, &wg, &errChan)
-		go f()
+		c.ctrlChan <- struct{}{}
+
+		select {
+		case <-time.After(timeout.Sub(time.Now())):
+			cancel()
+			return ErrorTimeOut
+		case <-ctx.Done():
+			cancel()
+			return nil
+		case err := <-errChan:
+			cancel()
+			return err
+		default:
+		}
+		f := wrapperTask(ctx, cancel, task, &wg, &resChan, &errChan, timeout)
+		go func() {
+			f()
+			<- c.ctrlChan
+		}()
 	}
 
 	// When error, wo can't close resChan, maybe some goroutines just finished.
@@ -55,6 +79,7 @@ func (c *Alloter) execTasks(parent context.Context, tasks *[]Task) error {
 	go func() {
 		wg.Wait()
 		cancel()
+		close(resChan)
 		close(errChan)
 	}()
 
