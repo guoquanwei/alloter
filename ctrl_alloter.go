@@ -17,8 +17,8 @@ func NewCtrlAlloter(workerNum int, opt *Options) *CtrlAlloter {
 		workerNum: workerNum,
 		ctrlChan: make(chan struct{}, workerNum),
 	}
-	if opt != nil && !opt.TimeOut.IsZero() {
-		c.timeout = opt.TimeOut
+	if opt != nil && opt.TimeOut != 0 {
+		c.timeout = time.Now().Add(opt.TimeOut)
 	}
 	return c
 }
@@ -44,7 +44,6 @@ func (c *CtrlAlloter) execTasks(parent context.Context, tasks *[]Task) error {
 	if size == 0 {
 		return nil
 	}
-
 	ctx, cancel := context.WithCancel(parent)
 	resChan := make(chan error, size)
 	errChan := make(chan error, size)
@@ -54,18 +53,9 @@ func (c *CtrlAlloter) execTasks(parent context.Context, tasks *[]Task) error {
 	timeout := c.GetTimeout()
 	for _, task := range *tasks {
 		c.ctrlChan <- struct{}{}
-
-		select {
-		case <-time.After(timeout.Sub(time.Now())):
-			cancel()
-			return ErrorTimeOut
-		case <-ctx.Done():
-			cancel()
-			return nil
-		case err := <-errChan:
-			cancel()
+		end, err := noblockGo(ctx, cancel, &errChan, timeout)
+		if end {
 			return err
-		default:
 		}
 		f := wrapperTask(ctx, cancel, task, &wg, &resChan, &errChan, timeout)
 		go func() {
@@ -82,32 +72,5 @@ func (c *CtrlAlloter) execTasks(parent context.Context, tasks *[]Task) error {
 		close(resChan)
 		close(errChan)
 	}()
-
-	// time control
-	if timeout.IsZero() {
-		for {
-			select {
-			case <-ctx.Done():
-				cancel()
-				return nil
-			case err := <-errChan:
-				cancel()
-				return err
-			}
-		}
-	} else {
-		for {
-			select {
-			case <-time.After(timeout.Sub(time.Now())):
-				cancel()
-				return ErrorTimeOut
-			case <-ctx.Done():
-				cancel()
-				return nil
-			case err := <-errChan:
-				cancel()
-				return err
-			}
-		}
-	}
+	return blockGo(ctx, cancel, &errChan, timeout)
 }

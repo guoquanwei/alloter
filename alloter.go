@@ -12,8 +12,8 @@ type Alloter struct {
 
 func NewAlloter(opt *Options) *Alloter {
 	c := &Alloter{}
-	if opt != nil && !opt.TimeOut.IsZero() {
-		c.timeout = opt.TimeOut
+	if opt != nil && opt.TimeOut != 0 {
+		c.timeout = time.Now().Add(opt.TimeOut)
 	}
 	return c
 }
@@ -57,32 +57,6 @@ func (c *Alloter) execTasks(parent context.Context, tasks *[]Task) error {
 		cancel()
 		close(errChan)
 	}()
-
-	// time control
-	if timeout.IsZero() {
-		for {
-			select {
-			case <-ctx.Done():
-				cancel()
-				return nil
-			case err := <-errChan:
-				cancel()
-				return err
-			}
-		}
-	} else {
-		for {
-			select {
-			case <-time.After(timeout.Sub(time.Now())):
-				cancel()
-				return ErrorTimeOut
-			case <-ctx.Done():
-				cancel()
-				return nil
-			case err := <-errChan:
-				cancel()
-				return err
-			}
-		}
-	}
+	return blockGo(ctx, cancel, &errChan, timeout)
 }
+
