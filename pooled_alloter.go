@@ -6,7 +6,6 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"runtime"
 	"sync"
-	"time"
 )
 
 var ErrorUsingAlloter = fmt.Errorf("ErrorUsingActuator")
@@ -17,20 +16,15 @@ type GoroutinePool interface {
 }
 
 type PooledAlloter struct {
-	timeout time.Time
 	workerNum int
 	pool      GoroutinePool
 	initOnce sync.Once
 }
 
-func NewPooledAlloter(workerNum int, opt *Options) *PooledAlloter {
-	c := &PooledAlloter{
+func NewPooledAlloter(workerNum int) *PooledAlloter {
+	return &PooledAlloter{
 		workerNum: workerNum,
 	}
-	if opt != nil && opt.TimeOut != 0 {
-		c.timeout = time.Now().Add(opt.TimeOut)
-	}
-	return c
 }
 
 // WithPool will support for using custom goroutine pool
@@ -58,10 +52,6 @@ func (c *PooledAlloter) ExecWithContext(ctx context.Context, tasks *[]Task) erro
 	return c.execTasks(ctx, tasks)
 }
 
-func (c *PooledAlloter) GetTimeout() time.Time {
-	return c.timeout
-}
-
 func (c *PooledAlloter) Release() {
 	if c.pool != nil {
 		c.pool.Release()
@@ -87,38 +77,31 @@ func (c *PooledAlloter) initPooledAlloter() {
 	}
 }
 
-func (c *PooledAlloter) setTimeout(timeout time.Time) {
-	c.timeout = timeout
-}
-
 // clone will clone this PooledAlloter without goroutine pool
 func (c *PooledAlloter) clone() *PooledAlloter {
 	return &PooledAlloter{
-		timeout:   c.timeout,
 		workerNum: c.workerNum,
 		initOnce:  sync.Once{},
 	}
 }
 
-func (c *PooledAlloter) execTasks(parent context.Context, tasks *[]Task) error {
+func (c *PooledAlloter) execTasks(ctx context.Context, tasks *[]Task) error {
 	size := len(*tasks)
 	if size == 0 {
 		return nil
 	}
 
-	ctx, cancel := context.WithCancel(parent)
 	resChan := make(chan error, size)
 	errChan := make(chan error, size)
 	wg := sync.WaitGroup{}
 	wg.Add(size)
 
-	timeout := c.GetTimeout()
 	for _, task := range *tasks {
-		end, err := noblockGo(ctx, cancel, &errChan, timeout)
+		end, err := noBlockGo(ctx, &errChan)
 		if end {
 			return err
 		}
-		f := wrapperTask(ctx, cancel, task, &wg, &resChan, &errChan, timeout)
+		f := wrapperTask(ctx, task, &wg, &resChan, &errChan)
 		err = c.pool.Submit(f)
 		if err != nil {
 			return err
@@ -127,11 +110,12 @@ func (c *PooledAlloter) execTasks(parent context.Context, tasks *[]Task) error {
 
 	// When error, wo can't close resChan, maybe some goroutines just finished.
 	// So, when error, wo just can wait auto GC.
+	child, cancel := context.WithCancel(ctx)
 	go func() {
 		wg.Wait()
 		cancel()
 		close(resChan)
 		close(errChan)
 	}()
-	return blockGo(ctx, cancel, &errChan, timeout)
+	return blockGo(child, &errChan)
 }

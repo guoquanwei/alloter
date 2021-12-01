@@ -15,18 +15,14 @@ It was inspired by a Node.js package's function, [bluebird](https://npmjs.com/pa
 
 ### init Alloter
 ```go
-type Options struct {
-    TimeOut time.Time
-}
-
 // simple concurrency
-func NewAlloter(opt *Options) *Alloter
+func NewAlloter() *Alloter
 
 // concurrency control
-func NewCtrlAlloter(workerNum int, opt *Options) *Alloter
+func NewCtrlAlloter(workerNum int) *Alloter
 
 // goroutines pool from ants/v2
-func NewPooledAlloter(workerNum int, opt *Options) *Alloter
+func NewPooledAlloter(workerNum int) *Alloter
 
 ```
 
@@ -65,7 +61,7 @@ func (c *Alloter) ExecWithContext(ctx context.Context, tasks *[]Task) error
                 })
             }(uid)
         }
-        p := alloter.NewCtrlAlloter(1, &alloter.Options{TimeOut: time.Now().Add(3 * time.Second)})
+        p := alloter.NewCtrlAlloter(1)
         err = p.ExecWithContext(ctx.Request().Context(), &tasks)
         if err != nil {
             ctx.JSON(500, err.Error())

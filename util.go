@@ -5,10 +5,7 @@ import (
 	"fmt"
 	"runtime/debug"
 	"sync"
-	"time"
 )
-
-var ErrorTimeOut = fmt.Errorf("TimeOut")
 
 type BaseActuator interface {
 	Exec(tasks *[]Task) error
@@ -17,22 +14,13 @@ type BaseActuator interface {
 
 type TimedAlloter interface {
 	BaseActuator
-	GetTimeout() time.Time
-	setTimeout(timeout time.Time)
-}
-
-// Options use to init alloter
-type Options struct {
-	TimeOut time.Duration
 }
 
 type Task func() error
 
-
 // wrapperTask will wrapper the task in order to notice execution result
 // to the main process
-func wrapperTask(ctx context.Context, cancel context.CancelFunc, task Task,
-	wg *sync.WaitGroup, resChan *chan error, errChan *chan error, timeout time.Time) func() {
+func wrapperTask(ctx context.Context, task Task, wg *sync.WaitGroup, resChan *chan error, errChan *chan error) func() {
 	return func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -42,27 +30,12 @@ func wrapperTask(ctx context.Context, cancel context.CancelFunc, task Task,
 
 			wg.Done()
 		}()
-		if timeout.IsZero() {
-			select {
-			case <-ctx.Done():
-				cancel()
-			case *resChan <- task():
-				err := <- *resChan
-				if err != nil {
-					*errChan <- err
-				}
-			}
-		} else {
-			select {
-			case <-time.After(timeout.Sub(time.Now())):
-				*errChan <- ErrorTimeOut
-			case <-ctx.Done():
-				cancel()
-			case *resChan <- task():
-				err := <- *resChan
-				if err != nil {
-					*errChan <- err
-				}
+		select {
+		case <-ctx.Done():
+		case *resChan <- task():
+			err := <- *resChan
+			if err != nil {
+				*errChan <- err
 			}
 		}
 	}
@@ -86,57 +59,25 @@ func wrapperSimpleTask(task Task, wg *sync.WaitGroup, resChan *chan error) func(
 	}
 }
 
-func noblockGo (ctx context.Context, cancel context.CancelFunc, errChan *chan error, timeout time.Time) (end bool, err error) {
-	if timeout.IsZero() {
-		select {
-		case <-ctx.Done():
-			cancel()
-			return true, nil
-		case err = <-*errChan:
-			cancel()
-			return true, err
-		default:
-		}
-	} else {
-		select {
-		case <-time.After(timeout.Sub(time.Now())):
-			fmt.Println(timeout.Sub(time.Now()))
-			cancel()
-			return true, ErrorTimeOut
-		case <-ctx.Done():
-			cancel()
-			return true, nil
-		case err = <-*errChan:
-			cancel()
-			return true, err
-		default:
-		}
+func noBlockGo (ctx context.Context, errChan *chan error) (end bool, err error) {
+	select {
+	case <-ctx.Done():
+		return true, ctx.Err()
+	case err = <-*errChan:
+		return true, err
+	default:
 	}
 	return false, nil
 }
 
-func blockGo (ctx context.Context, cancel context.CancelFunc, errChan *chan error, timeout time.Time) (err error) {
-	if timeout.IsZero() {
-		select {
-		case <-ctx.Done():
-			cancel()
-			return nil
-		case err = <-*errChan:
-			cancel()
-			return err
+func blockGo (ctx context.Context, errChan *chan error) (err error) {
+	select {
+	case <-ctx.Done():
+		if ctx.Err() != context.Canceled {
+			return ctx.Err()
 		}
-	} else {
-		select {
-		case <-time.After(timeout.Sub(time.Now())):
-			cancel()
-			return  ErrorTimeOut
-		case <-ctx.Done():
-			cancel()
-			return nil
-		case err = <-*errChan:
-			cancel()
-			return err
-		}
+	case err = <-*errChan:
+		return err
 	}
 	return nil
 }
