@@ -56,9 +56,9 @@ func (that *Controller) TestGoRunLock(ctx echo.Context) {
 	var users []third_parts.User
 	mux := sync.Mutex{}
 	for _, uid := range userIds {
-		func(uid string) {
+		func(userId string) {
 			tasks = append(tasks, func() error {
-				user, resErr := third_parts.GetUserById(uid)
+				user, resErr := third_parts.GetUserById(userId)
 				if resErr != nil {
 					return resErr
 				}
