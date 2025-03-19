@@ -18,7 +18,7 @@ func Benchmark_Block(b *testing.B) {
 
 }
 
-func Benchmark_For (b *testing.B)  {
+func Benchmark_For(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 	}
 }

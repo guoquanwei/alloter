@@ -7,26 +7,26 @@ import (
 
 type CtrlAlloter struct {
 	workerNum int
-	ctrlChan chan struct{}
+	ctrlChan  chan struct{}
 }
 
 func NewCtrlAlloter(workerNum int) *CtrlAlloter {
 	return &CtrlAlloter{
 		workerNum: workerNum,
-		ctrlChan: make(chan struct{}, workerNum),
+		ctrlChan:  make(chan struct{}, workerNum),
 	}
 }
 
-func (c *CtrlAlloter) Exec(tasks *[]Task) error {
+func (c *CtrlAlloter) Exec(tasks []Task) error {
 	return c.execTasks(context.Background(), tasks)
 }
 
-func (c *CtrlAlloter) ExecWithContext(ctx context.Context, tasks *[]Task) error {
+func (c *CtrlAlloter) ExecWithContext(ctx context.Context, tasks []Task) error {
 	return c.execTasks(ctx, tasks)
 }
 
-func (c *CtrlAlloter) execTasks(ctx context.Context, tasks *[]Task) error {
-	size := len(*tasks)
+func (c *CtrlAlloter) execTasks(ctx context.Context, tasks []Task) error {
+	size := len(tasks)
 	if size == 0 {
 		return nil
 	}
@@ -35,7 +35,7 @@ func (c *CtrlAlloter) execTasks(ctx context.Context, tasks *[]Task) error {
 	wg := sync.WaitGroup{}
 	wg.Add(size)
 
-	for _, task := range *tasks {
+	for _, task := range tasks {
 		c.ctrlChan <- struct{}{}
 		end, err := noBlockGo(ctx, &errChan)
 		if end {
@@ -44,7 +44,7 @@ func (c *CtrlAlloter) execTasks(ctx context.Context, tasks *[]Task) error {
 		f := wrapperTask(ctx, task, &wg, &resChan, &errChan)
 		go func() {
 			f()
-			<- c.ctrlChan
+			<-c.ctrlChan
 		}()
 	}
 

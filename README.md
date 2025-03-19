@@ -26,49 +26,57 @@ func NewPooledAlloter(workerNum int) *Alloter
 
 ```
 
-### exec Alloter
+### exec tasks
 ```go
 type Task func() error
 
-func (c *Alloter) Exec(tasks *[]Task) error
+func (c *Alloter) Exec(tasks []Task) error
 
-func (c *Alloter) ExecWithContext(ctx context.Context, tasks *[]Task) error
+func (c *Alloter) ExecWithContext(ctx context.Context, tasks []Task) error
 
 ```
 
 
 ### Demo!!!
+
 ```go
-    func (that *Controller) TestGoRunLock(ctx echo.Context) {
-        userIds := []string{
-            "uuid_1",
-            "uuid_2",
-        }
-        tasks := []alloter.Task{}
-        users := []third_parts.User{}
-        mux := sync.Mutex{}
-        for _, uid := range userIds {
-            func (uid string) {
-                tasks = append(tasks, func() error {
-                user, resErr := third_parts.GetUserById(uid)
-                if resErr != nil {
-                    return resErr
-                }
-                mux.Lock()
-                users = append(users, user)
-                mux.Unlock()
-                return nil
-                })
-            }(uid)
-        }
-        p := alloter.NewCtrlAlloter(1)
-        err = p.ExecWithContext(ctx.Request().Context(), &tasks)
-        if err != nil {
-            ctx.JSON(500, err.Error())
-            return
-        }
-        ctx.JSON(200, users)
-        return
-    }
+package main
+
+import (
+	"github.com/guoquanwei/alloter"
+	"sync"
+)
+
+func (that *Controller) TestGoRunLock(ctx echo.Context) {
+	userIds := []string{
+		"uuid_1",
+		"uuid_2",
+	}
+	var tasks []alloter.Task
+	var users []third_parts.User
+	mux := sync.Mutex{}
+	for _, uid := range userIds {
+		func(uid string) {
+			tasks = append(tasks, func() error {
+				user, resErr := third_parts.GetUserById(uid)
+				if resErr != nil {
+					return resErr
+				}
+				mux.Lock()
+				users = append(users, user)
+				mux.Unlock()
+				return nil
+			})
+		}(uid)
+	}
+	p := alloter.NewCtrlAlloter(1)
+	err = p.ExecWithContext(ctx.Request().Context(), tasks)
+	if err != nil {
+		ctx.JSON(500, err.Error())
+		return
+	}
+	ctx.JSON(200, users)
+	return
+}
 
 ```

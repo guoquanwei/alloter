@@ -5,22 +5,22 @@ import (
 	"sync"
 )
 
-type Alloter struct {}
+type Alloter struct{}
 
 func NewAlloter() *Alloter {
 	return &Alloter{}
 }
 
-func (c *Alloter) Exec(tasks *[]Task) error {
+func (c *Alloter) Exec(tasks []Task) error {
 	return c.execTasks(context.Background(), tasks)
 }
 
-func (c *Alloter) ExecWithContext(ctx context.Context, tasks *[]Task) error {
+func (c *Alloter) ExecWithContext(ctx context.Context, tasks []Task) error {
 	return c.execTasks(ctx, tasks)
 }
 
-func (c *Alloter) execTasks(ctx context.Context, tasks *[]Task) error {
-	size := len(*tasks)
+func (c *Alloter) execTasks(ctx context.Context, tasks []Task) error {
+	size := len(tasks)
 	if size == 0 {
 		return nil
 	}
@@ -28,7 +28,7 @@ func (c *Alloter) execTasks(ctx context.Context, tasks *[]Task) error {
 	wg := sync.WaitGroup{}
 	wg.Add(size)
 
-	for _, task := range *tasks {
+	for _, task := range tasks {
 		f := wrapperSimpleTask(task, &wg, &errChan)
 		go f()
 	}
@@ -43,4 +43,3 @@ func (c *Alloter) execTasks(ctx context.Context, tasks *[]Task) error {
 	}()
 	return blockGo(child, &errChan)
 }
-

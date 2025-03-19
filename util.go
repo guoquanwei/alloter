@@ -8,8 +8,8 @@ import (
 )
 
 type BaseActuator interface {
-	Exec(tasks *[]Task) error
-	ExecWithContext(ctx context.Context, tasks *[]Task) error
+	Exec(tasks []Task) error
+	ExecWithContext(ctx context.Context, tasks []Task) error
 }
 
 type TimedAlloter interface {
@@ -33,7 +33,7 @@ func wrapperTask(ctx context.Context, task Task, wg *sync.WaitGroup, resChan *ch
 		select {
 		case <-ctx.Done():
 		case *resChan <- task():
-			err := <- *resChan
+			err := <-*resChan
 			if err != nil {
 				*errChan <- err
 			}
@@ -59,7 +59,7 @@ func wrapperSimpleTask(task Task, wg *sync.WaitGroup, resChan *chan error) func(
 	}
 }
 
-func noBlockGo (ctx context.Context, errChan *chan error) (end bool, err error) {
+func noBlockGo(ctx context.Context, errChan *chan error) (end bool, err error) {
 	select {
 	case <-ctx.Done():
 		return true, ctx.Err()
@@ -70,10 +70,10 @@ func noBlockGo (ctx context.Context, errChan *chan error) (end bool, err error) 
 	return false, nil
 }
 
-func blockGo (ctx context.Context, errChan *chan error) (err error) {
+func blockGo(ctx context.Context, errChan *chan error) (err error) {
 	select {
 	case <-ctx.Done():
-		if ctx.Err() != context.Canceled {
+		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 	case err = <-*errChan:
@@ -81,5 +81,3 @@ func blockGo (ctx context.Context, errChan *chan error) (err error) {
 	}
 	return nil
 }
-
-

@@ -18,7 +18,7 @@ type GoroutinePool interface {
 type PooledAlloter struct {
 	workerNum int
 	pool      GoroutinePool
-	initOnce sync.Once
+	initOnce  sync.Once
 }
 
 func NewPooledAlloter(workerNum int) *PooledAlloter {
@@ -35,11 +35,11 @@ func (c *PooledAlloter) WithPool(pool GoroutinePool) *PooledAlloter {
 }
 
 // Exec is used to run tasks concurrently
-func (c *PooledAlloter) Exec(tasks *[]Task) error {
+func (c *PooledAlloter) Exec(tasks []Task) error {
 	return c.ExecWithContext(context.Background(), tasks)
 }
 
-func (c *PooledAlloter) ExecWithContext(ctx context.Context, tasks *[]Task) error {
+func (c *PooledAlloter) ExecWithContext(ctx context.Context, tasks []Task) error {
 	defer c.Release()
 	c.initOnce.Do(func() {
 		c.initPooledAlloter()
@@ -85,8 +85,8 @@ func (c *PooledAlloter) clone() *PooledAlloter {
 	}
 }
 
-func (c *PooledAlloter) execTasks(ctx context.Context, tasks *[]Task) error {
-	size := len(*tasks)
+func (c *PooledAlloter) execTasks(ctx context.Context, tasks []Task) error {
+	size := len(tasks)
 	if size == 0 {
 		return nil
 	}
@@ -96,7 +96,7 @@ func (c *PooledAlloter) execTasks(ctx context.Context, tasks *[]Task) error {
 	wg := sync.WaitGroup{}
 	wg.Add(size)
 
-	for _, task := range *tasks {
+	for _, task := range tasks {
 		end, err := noBlockGo(ctx, &errChan)
 		if end {
 			return err
