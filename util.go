@@ -73,6 +73,7 @@ func noBlockGo(ctx context.Context, errChan *chan error) (end bool, err error) {
 func blockGo(ctx context.Context, errChan *chan error) (err error) {
 	select {
 	case <-ctx.Done():
+		fmt.Println(ctx.Err())
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
