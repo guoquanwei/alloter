@@ -35,11 +35,9 @@ func (c *Alloter) execTasks(ctx context.Context, tasks []Task) error {
 
 	// When error, wo can't close resChan, maybe some goroutines just finished.
 	// So, when error, wo just can wait auto GC.
-	child, cancel := context.WithCancel(ctx)
 	go func() {
 		wg.Wait()
-		cancel()
 		close(errChan)
 	}()
-	return blockGo(child, &errChan)
+	return blockGo(ctx, &errChan)
 }
